@@ -1,0 +1,130 @@
+---
+title: 'Practical Machine Learning: Course Project'
+author: "Steve Phillips"
+date: "Sunday, December 27, 2015"
+output:
+  html_document:
+    pandoc_args: [
+      "+RTS", "-K64m",
+      "-RTS"
+    ]
+---
+
+Executive Summary:
+==================
+The intent of this project was to create a prediction model that could accurately classify the manner in which participants performed a barbell lift using accelerometer data into one of 5 categories.  Using 19,622 records of training data I selected the 59 fields that contained no NA or missing values and excluded the index column.  I built a Random Forest model and performed K Fold cross validation (K = 10) using 75% of the data each time as the training set and 25% as the test set.  The out of sample accuracy ranged between 99.80% and 99.98% with a mean accuracy of 99.88% accuracy.
+
+
+Results:
+=========
+
+
+The below table summarizes the accuracy for 10 runs of K fold cross validation
+```{r MainChunk, cache=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+library(knitr)
+library(caret)
+library(ggplot2)
+library(randomForest)
+
+
+setwd("F:/Users/SJP/My Documents/R Working Directory")
+
+dataTrain <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",stringsAsFactors = TRUE)
+#New line
+#train_classes <- unlist(sapply(dataTrain, class))
+
+dataTest <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",stringsAsFactors = TRUE)
+inscope <- read.csv("workout_inscope.csv")
+
+liteTrain <- dataTrain[,inscope$InScope]
+liteFinalTest <- dataTest[,inscope$InScope]
+# new line
+names(liteFinalTest)[59] <- "classe"
+liteFinalTest$classe <- as.factor(rep("A",20))
+
+
+
+
+
+# convert time stamp to date and time
+liteTrain$cvtd_timestamp <- as.POSIXct(liteTrain$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
+liteFinalTest$cvtd_timestamp <- as.POSIXct(liteFinalTest$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
+
+liteFinalTest$magnet_dumbbell_z <- as.numeric(liteFinalTest$magnet_dumbbell_z)
+liteFinalTest$magnet_forearm_y <- as.numeric(liteFinalTest$magnet_forearm_y)
+liteFinalTest$magnet_forearm_z <- as.numeric(liteFinalTest$magnet_forearm_z)
+
+
+# make levels of factor variables the same between training and test set
+levels(liteFinalTest$new_window) <- levels(liteTrain$new_window)
+levels(liteFinalTest$classe) <- levels(liteTrain$classe)
+
+
+#---------------
+# Test data types to make sure that they all match
+# a1 <- unlist(sapply(liteTrain, class))
+# a2 <- unlist(sapply(liteFinalTest, class))
+# a1 == a2
+# data.frame(a1,a2,a1==a2)
+
+
+#---------------
+
+
+
+
+
+
+#run K fold cross validation, K = 10
+
+K = 10
+
+
+#initialize data frame for Accuracy results
+
+df <- data.frame(Accuracy = rep(0.0001,K))
+
+for (i in 1:K) {
+
+  # subset Training data into Training and test set
+  
+  inTrain <- createDataPartition(y=liteTrain$classe,p=.75,list=FALSE)
+  training <- liteTrain[inTrain,]
+  testing <- liteTrain[-inTrain,]
+  
+  
+  fit <- randomForest(classe ~ ., data = training)
+
+  
+  
+  predictions <- predict(fit,testing)
+  results <- confusionMatrix(predictions,testing$classe)
+  raccuracy <- results$overall[1]
+  df$Accuracy[i] <- raccuracy
+
+}
+
+#print("Summary of K fold cross validation accuracy")
+print(summary(df$Accuracy))
+
+#print("Output of last random forest model fit")
+#print(fit)
+
+#-----------
+# predict on final data
+
+
+fpredictions <- predict(fit,liteFinalTest)
+
+#print("Predictions for 20 test cases")
+#print(fpredictions)
+
+
+```
+
+
+Predictions for 20 test cases.  Accuracy when submitted was 20 out of 20 correct, for 100% accuracy.  This was within range of predicted accuracy based on K Fold cross validation.
+
+```{r}
+print(fpredictions)
+```
